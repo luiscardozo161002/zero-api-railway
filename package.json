@@ -10,7 +10,6 @@
     "test": "test"
   },
   "scripts": {
-    "prestart": "npx knex seed:run",
     "start": "node server",
     "dev": "npx nodemon server",
     "test": "lab -a @hapi/code -L",
