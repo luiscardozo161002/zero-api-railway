@@ -128,7 +128,7 @@ const Manifest = new Confidence.Store({
             }
           },
           production: {
-            migrateOnStart: process.env.DATABASE_MIGRATE_ON_START === 'chí'
+            migrateOnStart: process.env.DATABASE_MIGRATE_ON_START === 'true'
           }
         }
       },
