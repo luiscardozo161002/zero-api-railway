@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: $REGION_SHORT-$CI_COMMIT_REF_SLUG-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "POST, GET, PATCH, PUT, DELETE"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: Token,DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-body-size: 16m
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - $REGION_SHORT.$CI_DEPLOY_HOST
+      secretName: $REGION_SHORT-$TLS_PREFIX-tls-cert
+  rules:
+    - host: $REGION_SHORT.$CI_DEPLOY_HOST
+      http:
+        paths:
+          - path: /$CI_COMMIT_REF_SLUG(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                  name: api-svc
+                  port:
+                    number: $PORT

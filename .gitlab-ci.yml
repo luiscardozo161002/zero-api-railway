@@ -1,0 +1,114 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+stages:
+  - setup
+  - deploy
+
+default:
+  tags:
+    - zeroapi-runner
+
+# --- ETAPA 1: INSTALACIÓN ---
+install_dependencies:
+  stage: setup
+  rules:
+    - when: always
+  script:
+    - echo "📂 Entrando a la carpeta del proyecto..." 
+    # Assumes the runner starts in the project root. The user's other project had a cd subfolder, checking structure...
+    # Based on list_dir, package.json is in root, so no cd needed unless specifically requested?
+    # User's example had cd Saasfactory.ZeroClm.Client.
+    # THIS project seems to be in the root of the repo (based on files present).
+    - echo "📦 Instalando dependencias de Node..."
+    - npm config set fetch-retry-mintimeout 20000
+    - npm config set fetch-retry-maxtimeout 120000
+    # Usamos npm install en lugar de ci para evitar problemas de EPERM (bloqueo de archivos) en Windows
+    - npm install --no-audit --progress=false
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+    policy: pull-push
+
+# --- PLANTILLA BASE ---
+.deploy_template:
+  stage: deploy
+  needs: ["install_dependencies"]
+  allow_failure: false
+  
+  script:
+    - echo "🚀 Iniciando despliegue para $CLIENT_NAME..."
+    # Llama al script de PowerShell pasándole la clave del cliente (ambiente)
+    - powershell -ExecutionPolicy Bypass -File .\Deploy-CI-Api.ps1 -ClientKey "$CLIENT_KEY"
+
+# ====================================================
+#   AMBIENTE DE PRUEBAS (RAMA DEVELOP)
+# ====================================================
+
+Deploy QA:
+  extends: .deploy_template
+  variables:
+    CLIENT_KEY: "qa"
+    CLIENT_NAME: "QA"
+  environment:
+    name: Staging/QA
+    url: https://qa.zero-api.com/
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+# ====================================================
+#   AMBIENTES DE PRODUCCIÓN (RAMA MAIN)
+# ====================================================
+
+Deploy Prod:
+  extends: .deploy_template
+  variables:
+    CLIENT_KEY: "prod"
+    CLIENT_NAME: "Production"
+  environment:
+    name: Production/Main
+    url: https://api.zero-api.com/
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+
+# ====================================================
+#   DESPLIEGUE A RENDER.COM (NUEVO)
+# ====================================================
+
+Deploy Render QA:
+  stage: deploy
+  needs: ["install_dependencies"]
+  environment:
+    name: Staging/Render
+  script:
+    - echo "🚀 Desplegando en Render.com (QA/Develop)..."
+    #- curl -X POST "$RENDER_QA_DEPLOY_HOOK_URL"
+    - |
+      try {
+        $response = Invoke-WebRequest -Uri $env:RENDER_QA_DEPLOY_HOOK_URL -Method POST -UseBasicParsing
+        Write-Host "✅ Deploy hook triggered successfully"
+        Write-Host "Response: $($response.StatusCode)"
+      } catch {
+        Write-Host "❌ Failed to trigger deploy hook"
+        Write-Host "Error: $_"
+        exit 1
+      }
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+      when: manual
+
+Deploy Render Prod:
+  stage: deploy
+  needs: ["install_dependencies"]
+  environment:
+    name: Production/Render
+  script:
+    - echo "🚀 Desplegando en Render.com (Prod/Main)..."
+    - curl -X POST "$RENDER_PROD_DEPLOY_HOOK_URL"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
