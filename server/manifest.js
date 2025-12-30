@@ -72,7 +72,7 @@ const Manifest = new Confidence.Store({
         credentials: true,
         headers: ['Authorization', 'Content-Type', 'X-Organization'],
         additionalHeaders: ['cache-control', 'x-request-with', 'X-Organization', 'Set-Cookie'],
-        exposedHeaders: ['Set-Cookie'],
+        exposedHeaders: ['Set-Cookie', 'X-Organization'],
         maxAge: 86400
       }
     },
